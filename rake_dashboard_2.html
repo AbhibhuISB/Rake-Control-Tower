@@ -1,0 +1,1821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Rake & Trucking Control Tower</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:          #f0f4f8;
+      --bg-mid:      #e4eaf2;
+      --surface:     #ffffff;
+      --surface-2:   #f7f9fc;
+      --navy:        #1a3154;
+      --navy-mid:    #254571;
+      --accent:      #0d7a5f;
+      --accent-dim:  rgba(13,122,95,0.1);
+      --accent-bdr:  rgba(13,122,95,0.3);
+      --amber:       #b45309;
+      --amber-dim:   rgba(180,83,9,0.09);
+      --amber-bdr:   rgba(180,83,9,0.3);
+      --red:         #b91c1c;
+      --red-dim:     rgba(185,28,28,0.08);
+      --red-bdr:     rgba(185,28,28,0.25);
+      --blue:        #1d4ed8;
+      --blue-dim:    rgba(29,78,216,0.08);
+      --text:        #1e2d3d;
+      --text-dim:    #3d5470;
+      --text-muted:  #6b7f96;
+      --border:      rgba(0,0,0,0.09);
+      --border-md:   rgba(0,0,0,0.14);
+      --mono:        'IBM Plex Mono', monospace;
+      --sans:        'IBM Plex Sans', sans-serif;
+      --radius:      8px;
+      --shadow:      0 1px 4px rgba(0,0,0,0.07), 0 2px 12px rgba(0,0,0,0.05);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      background: var(--navy);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      height: 54px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    }
+
+    .logo { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+    .logo-icon {
+      width: 30px; height: 30px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: grid; place-items: center;
+    }
+    .logo-icon svg { width: 16px; height: 16px; color: #fff; }
+
+    .logo-text {
+      font-family: var(--mono);
+      font-size: 12px; font-weight: 600;
+      letter-spacing: 0.08em; color: #fff; line-height: 1.2;
+    }
+    .logo-sub { font-size: 9px; font-weight: 400; color: rgba(255,255,255,0.5); letter-spacing: 0.1em; }
+
+    .topbar-divider { width: 1px; height: 26px; background: rgba(255,255,255,0.15); flex-shrink: 0; }
+
+    .live-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--mono); font-size: 9px; color: #6ee7b7;
+      letter-spacing: 0.12em; text-transform: uppercase;
+    }
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: #6ee7b7;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; box-shadow: 0 0 0 0 rgba(110,231,183,0.5); }
+      50%      { opacity:.7; box-shadow: 0 0 0 5px rgba(110,231,183,0); }
+    }
+
+    .topbar-filters { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+    .filter-group {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 5px; padding: 5px 10px;
+    }
+    .filter-label { font-family: var(--mono); font-size: 9px; color: rgba(255,255,255,0.5); letter-spacing: 0.1em; text-transform: uppercase; }
+    .filter-group select, .filter-group input {
+      background: transparent; border: none; outline: none;
+      color: #fff; font-family: var(--mono); font-size: 11px; cursor: pointer;
+    }
+    .filter-group select option { background: var(--navy); }
+    .timestamp { font-family: var(--mono); font-size: 9px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+
+    /* ── EXCEPTION BANNER ── */
+    .exception-banner {
+      background: #fff1f1;
+      border-bottom: 2px solid #fca5a5;
+      padding: 7px 24px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .exception-label {
+      font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em;
+      color: var(--red); text-transform: uppercase; white-space: nowrap;
+      flex-shrink: 0; display: flex; align-items: center; gap: 5px;
+    }
+    .exception-items { display: flex; gap: 8px; overflow: hidden; flex-wrap: nowrap; }
+    .exception-chip {
+      background: #fee2e2; border: 1px solid #fca5a5;
+      border-radius: 4px; padding: 2px 9px;
+      font-family: var(--mono); font-size: 9px; color: #991b1b; white-space: nowrap;
+    }
+    .exception-chip.amber {
+      background: #fef3c7; border-color: #fcd34d; color: #92400e;
+    }
+
+    /* ── MAIN LAYOUT ── */
+    .main { display: flex; height: calc(100vh - 54px - 34px); }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 50px; flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border-md);
+      display: flex; flex-direction: column;
+      align-items: center; padding: 14px 0; gap: 6px;
+      box-shadow: 1px 0 4px rgba(0,0,0,0.05);
+    }
+    .sidebar-btn {
+      width: 34px; height: 34px; border-radius: 7px;
+      border: 1px solid transparent; background: transparent;
+      display: grid; place-items: center; cursor: pointer;
+      transition: all 0.14s; color: var(--text-muted);
+    }
+    .sidebar-btn:hover { background: var(--bg-mid); color: var(--text); }
+    .sidebar-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent-bdr); color: var(--accent);
+    }
+    .sidebar-btn svg { width: 15px; height: 15px; }
+    .sidebar-spacer { flex: 1; }
+
+    /* ── CONTENT ── */
+    .content {
+      flex: 1; overflow-y: auto; padding: 18px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .content::-webkit-scrollbar { width: 4px; }
+    .content::-webkit-scrollbar-thumb { background: var(--border-md); border-radius: 4px; }
+
+    /* ── KPI ROW ── */
+    .kpi-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 12px; }
+
+    .kpi-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 15px;
+      box-shadow: var(--shadow); position: relative; overflow: hidden;
+      transition: box-shadow 0.2s, transform 0.2s; cursor: default;
+    }
+    .kpi-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.1); transform: translateY(-1px); }
+    .kpi-card::before { content:''; position:absolute; top:0;left:0;right:0; height:3px; }
+    .kpi-card.green::before { background: var(--accent); }
+    .kpi-card.amber::before { background: var(--amber); }
+    .kpi-card.red::before   { background: var(--red); }
+    .kpi-card.blue::before  { background: var(--blue); }
+
+    .kpi-label { font-size: 10px; font-family: var(--mono); letter-spacing: 0.08em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 7px; }
+    .kpi-value { font-family: var(--mono); font-size: 26px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
+    .kpi-card.green .kpi-value { color: var(--accent); }
+    .kpi-card.amber .kpi-value { color: var(--amber); }
+    .kpi-card.red   .kpi-value { color: var(--red);   }
+    .kpi-card.blue  .kpi-value { color: var(--blue);  }
+    .kpi-sub { font-size: 10px; color: var(--text-muted); }
+
+    .kpi-bar { position:absolute; bottom:0;left:0;right:0; height:3px; background: rgba(0,0,0,0.06); }
+    .kpi-bar-fill { height:100%; border-radius:0 2px 0 0; transition: width .6s ease; }
+    .kpi-card.green .kpi-bar-fill { background: var(--accent); }
+    .kpi-card.amber .kpi-bar-fill { background: var(--amber); }
+    .kpi-card.red   .kpi-bar-fill { background: var(--red);   }
+    .kpi-card.blue  .kpi-bar-fill { background: var(--blue);  }
+
+    /* ── TAB NAV ── */
+    .tab-nav {
+      display: flex; gap: 2px;
+      background: var(--surface); border: 1px solid var(--border-md);
+      border-radius: var(--radius); padding: 3px; width: fit-content;
+      box-shadow: var(--shadow);
+    }
+    .tab-btn {
+      padding: 6px 15px; border-radius: 6px; border: none;
+      background: transparent; color: var(--text-muted);
+      font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em;
+      cursor: pointer; transition: all 0.14s; white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--text); background: var(--bg-mid); }
+    .tab-btn.active {
+      background: var(--navy); color: #fff;
+    }
+
+    /* ── TAB PANELS ── */
+    .tab-panel { display:none; flex-direction:column; gap:14px; }
+    .tab-panel.active { display:flex; }
+
+    /* ── SECTION HEADER ── */
+    .section-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .section-title { font-family:var(--mono); font-size:10px; letter-spacing:0.12em; color:var(--text-muted); text-transform:uppercase; white-space:nowrap; }
+    .section-line { flex:1; height:1px; background:var(--border-md); }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow);
+    }
+    .card-header {
+      padding: 12px 16px 10px; border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-title {
+      font-family: var(--mono); font-size: 11px; font-weight: 600;
+      color: var(--text); display: flex; align-items: center; gap: 7px;
+    }
+    .card-title svg { width: 13px; height: 13px; color: var(--accent); }
+
+    /* ── TABLES ── */
+    .data-table { width:100%; border-collapse:collapse; }
+    .data-table th {
+      padding: 7px 13px; font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted);
+      text-align: right; border-bottom: 1px solid var(--border-md);
+      background: var(--surface-2); white-space: nowrap;
+    }
+    .data-table th:first-child { text-align:left; }
+    .data-table td {
+      padding: 9px 13px; font-family: var(--mono); font-size: 11px;
+      color: var(--text); text-align: right; border-bottom: 1px solid var(--border);
+    }
+    .data-table td:first-child { text-align:left; color:var(--text-dim); font-size:11px; }
+    .data-table tr:last-child td { border-bottom:none; }
+    .data-table tr:hover td { background: var(--bg); }
+
+    .num-pos  { color: var(--accent) !important; font-weight:600; }
+    .num-warn { color: var(--amber)  !important; font-weight:600; }
+    .num-bad  { color: var(--red)    !important; font-weight:600; }
+
+    /* ── STATUS PILLS ── */
+    .pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 7px; border-radius: 4px;
+      font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.07em; text-transform: uppercase; font-weight: 600;
+    }
+    .pill-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
+    .pill.green { background:var(--accent-dim); color:var(--accent); border:1px solid var(--accent-bdr); }
+    .pill.amber { background:var(--amber-dim);  color:var(--amber);  border:1px solid var(--amber-bdr);  }
+    .pill.red   { background:var(--red-dim);    color:var(--red);    border:1px solid var(--red-bdr);    }
+
+    /* ── TERMINAL TAG ── */
+    .tag {
+      font-size:9px; padding:2px 6px; border-radius:3px;
+      border:1px solid var(--border-md); color:var(--text-muted);
+      background: var(--bg-mid); font-family:var(--mono);
+    }
+    .tag.import { background:var(--blue-dim,rgba(29,78,216,0.07)); color:var(--blue); border-color:rgba(29,78,216,0.25); }
+    .tag.export { background:var(--accent-dim); color:var(--accent); border-color:var(--accent-bdr); }
+
+    /* ── DRILL ROW ── */
+    .drill-row {
+      display:flex; gap:6px; flex-wrap:wrap;
+      padding:9px 13px; border-top:1px solid var(--border);
+      background: var(--bg);
+    }
+    .drill-label { font-family:var(--mono); font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; align-self:center; }
+    .drill-btn {
+      font-family:var(--mono); font-size:9px; letter-spacing:0.06em;
+      padding:3px 9px; border-radius:4px;
+      border:1px solid var(--border-md); background:var(--surface);
+      color:var(--text-muted); cursor:pointer; transition:all .14s; text-transform:uppercase;
+    }
+    .drill-btn:hover { border-color:var(--accent-bdr); color:var(--accent); background:var(--accent-dim); }
+
+    /* ── TWO-COL GRID ── */
+    .two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .three-col { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+
+    /* ── CM BAR ── */
+    .cm-wrap { display:flex; align-items:center; gap:7px; justify-content:flex-end; }
+    .cm-bg { width:55px; height:4px; background:var(--bg-mid); border-radius:2px; overflow:hidden; }
+    .cm-fill { height:100%; border-radius:2px; background:var(--accent); }
+
+    /* ── PRIORITY BAR ── */
+    .pri-wrap { display:flex; align-items:center; gap:5px; }
+    .pri-bg { width:46px; height:3px; background:var(--bg-mid); border-radius:2px; overflow:hidden; }
+    .pri-fill { height:100%; border-radius:2px; }
+    .risk-high   { color:var(--red);   font-family:var(--mono); font-size:10px; font-weight:600; }
+    .risk-medium { color:var(--amber); font-family:var(--mono); font-size:10px; font-weight:600; }
+    .risk-low    { color:var(--accent);font-family:var(--mono); font-size:10px; font-weight:600; }
+
+    /* ════════════════════════════════════════
+       DATA ENTRY TAB
+    ════════════════════════════════════════ */
+    .de-layout { display:grid; grid-template-columns:220px 1fr; gap:14px; align-items:start; }
+
+    .de-menu-card {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow);
+    }
+    .de-menu-header {
+      padding:10px 14px; background:var(--navy);
+      font-family:var(--mono); font-size:10px; letter-spacing:.1em;
+      color:rgba(255,255,255,.7); text-transform:uppercase;
+    }
+    .de-menu-item {
+      display:flex; align-items:center; gap:9px;
+      padding:10px 14px; cursor:pointer; border:none; background:transparent;
+      font-family:var(--sans); font-size:12px; color:var(--text-dim);
+      width:100%; text-align:left; transition:all .12s;
+      border-bottom:1px solid var(--border);
+    }
+    .de-menu-item:last-child { border-bottom:none; }
+    .de-menu-item:hover { background:var(--bg); color:var(--text); }
+    .de-menu-item.active { background:var(--accent-dim); color:var(--accent); font-weight:600; }
+    .de-menu-item svg { width:13px; height:13px; flex-shrink:0; }
+
+    .de-form-card {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden;
+    }
+    .de-form-header {
+      padding:12px 18px; border-bottom:1px solid var(--border);
+      background:var(--surface-2);
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .de-form-title { font-family:var(--mono); font-size:12px; font-weight:600; color:var(--text); }
+    .de-form-sub   { font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+    .de-form-body { padding:18px; display:flex; flex-direction:column; gap:14px; }
+
+    .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .form-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+
+    .field { display:flex; flex-direction:column; gap:5px; }
+    .field label {
+      font-family:var(--mono); font-size:9px; letter-spacing:.1em;
+      color:var(--text-muted); text-transform:uppercase; font-weight:500;
+    }
+    .field input, .field select, .field textarea {
+      background:var(--bg); border:1px solid var(--border-md);
+      border-radius:5px; padding:8px 10px;
+      font-family:var(--mono); font-size:11px; color:var(--text);
+      outline:none; transition:border-color .14s;
+      width:100%;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color:var(--accent); background:var(--surface);
+      box-shadow:0 0 0 3px var(--accent-dim);
+    }
+    .field textarea { resize:vertical; min-height:64px; }
+    .field select option { background:var(--surface); }
+
+    .de-actions { display:flex; gap:8px; padding:14px 18px; border-top:1px solid var(--border); background:var(--surface-2); }
+
+    .btn {
+      padding:8px 18px; border-radius:6px; border:none;
+      font-family:var(--mono); font-size:11px; letter-spacing:.06em;
+      cursor:pointer; transition:all .14s; font-weight:600;
+    }
+    .btn-primary { background:var(--accent); color:#fff; }
+    .btn-primary:hover { background:#0b6b52; }
+    .btn-secondary {
+      background:var(--surface); border:1px solid var(--border-md);
+      color:var(--text-muted);
+    }
+    .btn-secondary:hover { border-color:var(--border); color:var(--text); }
+    .btn-danger { background:var(--red-dim); border:1px solid var(--red-bdr); color:var(--red); }
+    .btn-danger:hover { background:var(--red); color:#fff; }
+
+    /* Records list below form */
+    .de-records-card {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:var(--radius); box-shadow:var(--shadow);
+      overflow:hidden; margin-top:14px;
+    }
+    .de-records-header {
+      padding:10px 16px; border-bottom:1px solid var(--border);
+      background:var(--surface-2);
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .de-records-title { font-family:var(--mono); font-size:11px; font-weight:600; color:var(--text); }
+
+    .de-record-row {
+      display:flex; align-items:center; gap:10px;
+      padding:9px 16px; border-bottom:1px solid var(--border);
+      font-family:var(--mono); font-size:11px; color:var(--text-dim);
+    }
+    .de-record-row:last-child { border-bottom:none; }
+    .de-record-row:hover { background:var(--bg); }
+    .de-record-main { flex:1; }
+    .de-record-badge {
+      font-size:9px; padding:2px 7px; border-radius:3px;
+      background:var(--bg-mid); color:var(--text-muted);
+      border:1px solid var(--border-md); white-space:nowrap;
+    }
+
+    .btn-icon {
+      width:26px; height:26px; border-radius:5px; border:none;
+      background:transparent; cursor:pointer; display:grid; place-items:center;
+      color:var(--text-muted); transition:all .12s;
+    }
+    .btn-icon:hover.edit  { background:var(--blue-dim); color:var(--blue); }
+    .btn-icon:hover.del   { background:var(--red-dim);  color:var(--red); }
+    .btn-icon svg { width:13px; height:13px; }
+
+    /* ── TOAST ── */
+    .toast {
+      position:fixed; bottom:24px; right:24px; z-index:999;
+      background:var(--navy); color:#fff;
+      font-family:var(--mono); font-size:11px;
+      padding:10px 18px; border-radius:7px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.2);
+      opacity:0; transform:translateY(8px);
+      transition:all .25s; pointer-events:none;
+    }
+    .toast.show { opacity:1; transform:translateY(0); }
+    .toast.success { border-left:3px solid var(--accent); }
+    .toast.error   { border-left:3px solid var(--red); }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,0.35);
+      z-index:200; display:none; place-items:center;
+    }
+    .modal-overlay.open { display:grid; }
+    .modal {
+      background:var(--surface); border-radius:10px;
+      box-shadow:0 8px 40px rgba(0,0,0,0.18);
+      padding:24px; max-width:400px; width:90%;
+      font-family:var(--sans);
+    }
+    .modal h3 { font-size:15px; margin-bottom:8px; color:var(--text); }
+    .modal p  { font-size:13px; color:var(--text-muted); margin-bottom:20px; line-height:1.5; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; }
+
+    /* ── PASSWORD LOCK SCREEN ── */
+    .lock-screen {
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:center; padding:60px 24px; text-align:center; gap:20px;
+    }
+    .lock-icon {
+      width:56px; height:56px; border-radius:14px;
+      background:var(--navy); display:grid; place-items:center;
+      box-shadow:0 4px 20px rgba(26,49,84,0.2);
+    }
+    .lock-icon svg { width:26px; height:26px; color:#fff; }
+    .lock-title { font-family:var(--mono); font-size:15px; font-weight:600; color:var(--text); margin-bottom:2px; }
+    .lock-sub { font-size:12px; color:var(--text-muted); line-height:1.5; max-width:300px; }
+    .lock-form { display:flex; flex-direction:column; gap:10px; width:100%; max-width:280px; }
+    .lock-input-wrap { position:relative; display:flex; align-items:center; }
+    .lock-input {
+      width:100%; padding:10px 40px 10px 14px;
+      background:var(--bg); border:1px solid var(--border-md);
+      border-radius:7px; font-family:var(--mono); font-size:13px;
+      color:var(--text); outline:none; transition:all .14s; letter-spacing:.08em;
+    }
+    .lock-input:focus { border-color:var(--accent); background:var(--surface); box-shadow:0 0 0 3px var(--accent-dim); }
+    .lock-input.error { border-color:var(--red); box-shadow:0 0 0 3px var(--red-dim); animation:shake .3s ease; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 60%{transform:translateX(6px)} 80%{transform:translateX(-3px)} }
+    .lock-toggle {
+      position:absolute; right:10px; background:none; border:none;
+      cursor:pointer; color:var(--text-muted); display:grid; place-items:center; padding:4px;
+    }
+    .lock-toggle:hover { color:var(--text); }
+    .lock-toggle svg { width:14px; height:14px; }
+    .lock-btn {
+      padding:10px; background:var(--navy); color:#fff; border:none;
+      border-radius:7px; font-family:var(--mono); font-size:12px;
+      font-weight:600; letter-spacing:.06em; cursor:pointer; transition:all .14s;
+    }
+    .lock-btn:hover { background:var(--navy-mid); }
+    .lock-btn:disabled { opacity:.45; cursor:not-allowed; }
+    .lock-error { font-family:var(--mono); font-size:10px; color:var(--red); letter-spacing:.04em; min-height:14px; }
+    .lock-attempts { font-family:var(--mono); font-size:9px; color:var(--text-muted); letter-spacing:.06em; }
+    .session-bar {
+      display:flex; align-items:center; gap:8px;
+      background:var(--accent-dim); border:1px solid var(--accent-bdr);
+      border-radius:6px; padding:8px 14px;
+      font-family:var(--mono); font-size:10px; color:var(--accent);
+      margin-bottom:14px;
+    }
+    .session-bar svg { width:12px; height:12px; flex-shrink:0; }
+    .session-signout {
+      font-family:var(--mono); font-size:9px; color:var(--text-muted);
+      background:none; border:none; cursor:pointer; letter-spacing:.06em;
+      text-decoration:underline; text-underline-offset:2px; margin-left:auto;
+    }
+    .session-signout:hover { color:var(--red); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width:1200px) {
+      .kpi-row { grid-template-columns:repeat(3,1fr); }
+      .two-col, .three-col, .de-layout { grid-template-columns:1fr; }
+    }
+    @media (max-width:768px) {
+      .kpi-row { grid-template-columns:repeat(2,1fr); }
+      .topbar-filters { display:none; }
+    }
+
+    .fade-in { animation:fadeIn .28s ease forwards; opacity:0; }
+    @keyframes fadeIn { to { opacity:1; } }
+    .s1{animation-delay:.04s} .s2{animation-delay:.08s} .s3{animation-delay:.12s}
+    .s4{animation-delay:.16s} .s5{animation-delay:.20s}
+  </style>
+</head>
+<body>
+
+<!-- ── TOPBAR ── -->
+<header class="topbar">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M3 6h18M3 12h18M3 18h18"/>
+        <circle cx="7"  cy="6"  r="1.5" fill="currentColor"/>
+        <circle cx="17" cy="12" r="1.5" fill="currentColor"/>
+        <circle cx="11" cy="18" r="1.5" fill="currentColor"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-text">RAKE CONTROL TOWER</div>
+      <div class="logo-sub">Operations · Planning · Profitability</div>
+    </div>
+  </div>
+
+  <div class="topbar-divider"></div>
+  <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+
+  <div class="topbar-filters">
+    <div class="filter-group">
+      <span class="filter-label">Date</span>
+      <input type="date" value="2026-05-28"/>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Terminal</span>
+      <select>
+        <option>All Terminals</option><option>JNPT</option>
+        <option>Mundra</option><option>PIPAVAV</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">BU</span>
+      <select><option>All BUs</option><option>EXIM</option><option>Domestic</option></select>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Segment</span>
+      <select><option>All</option><option>Import</option><option>Export</option></select>
+    </div>
+  </div>
+  <span class="timestamp" id="ts"></span>
+</header>
+
+<!-- ── EXCEPTION BANNER ── -->
+<div class="exception-banner">
+  <span class="exception-label">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+    EXCEPTIONS
+  </span>
+  <div class="exception-items">
+    <span class="exception-chip">⚠ ADANI-105: TXR expiry in 18 hrs</span>
+    <span class="exception-chip">⚠ Rake shortage: T+1 deficit of 8</span>
+    <span class="exception-chip amber">◆ RK-46: Idle &gt;14 hrs at Tumb</span>
+    <span class="exception-chip amber">◆ TAT breach: Patli route</span>
+    <span class="exception-chip">⚠ Pendency spike: Kila Raipur</span>
+  </div>
+</div>
+
+<!-- ── MAIN ── -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <button class="sidebar-btn active" title="Planning & Ops"   onclick="switchTab('planning')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+        <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+      </svg>
+    </button>
+    <button class="sidebar-btn" title="Inventory"    onclick="switchTab('inventory')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+      </svg>
+    </button>
+    <button class="sidebar-btn" title="Control Tower" onclick="switchTab('controltower')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+    </button>
+    <button class="sidebar-btn" title="Profitability" onclick="switchTab('profitability')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="12" y1="1" x2="12" y2="23"/>
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+      </svg>
+    </button>
+    <button class="sidebar-btn" title="Data Entry" onclick="switchTab('dataentry')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+    </button>
+    <div class="sidebar-spacer"></div>
+    <button class="sidebar-btn" title="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </nav>
+
+  <!-- CONTENT -->
+  <main class="content">
+
+    <!-- KPI ROW -->
+    <div class="kpi-row">
+      <div class="kpi-card green fade-in s1">
+        <div class="kpi-label">MTD Volume Achievement</div>
+        <div class="kpi-value">61%</div>
+        <div class="kpi-sub">vs 64,559 budget</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:61%"></div></div>
+      </div>
+      <div class="kpi-card amber fade-in s2">
+        <div class="kpi-label">YTD Volume Achievement</div>
+        <div class="kpi-value">63%</div>
+        <div class="kpi-sub">vs 139,864 budget</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:63%"></div></div>
+      </div>
+      <div class="kpi-card red fade-in s3">
+        <div class="kpi-label">Rake Holding (Today)</div>
+        <div class="kpi-value">-3</div>
+        <div class="kpi-sub">Deficit vs requirement</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:80%"></div></div>
+      </div>
+      <div class="kpi-card red fade-in s4">
+        <div class="kpi-label">Vehicle Holding (Today)</div>
+        <div class="kpi-value">-30</div>
+        <div class="kpi-sub">Deficit vs requirement</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:80%"></div></div>
+      </div>
+      <div class="kpi-card blue fade-in s5">
+        <div class="kpi-label">Overall CM %</div>
+        <div class="kpi-value">35%</div>
+        <div class="kpi-sub">Contribution Margin</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:35%"></div></div>
+      </div>
+    </div>
+
+    <!-- TAB NAV -->
+    <div class="tab-nav">
+      <button class="tab-btn active"  onclick="switchTab('planning')">Planning &amp; Ops</button>
+      <button class="tab-btn"         onclick="switchTab('inventory')">Inventory</button>
+      <button class="tab-btn"         onclick="switchTab('controltower')">Control Tower</button>
+      <button class="tab-btn"         onclick="switchTab('profitability')">Profitability</button>
+      <button class="tab-btn"         onclick="switchTab('dataentry')">Data Entry</button>
+    </div>
+
+    <!-- ══════════════ PLANNING ══════════════ -->
+    <div id="tab-planning" class="tab-panel active">
+
+      <div>
+        <div class="section-header">
+          <span class="section-title">Volume Insights — FY 2026-2027</span>
+          <div class="section-line"></div>
+        </div>
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                MTD Performance
+              </span>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Metric</th><th>Actual</th><th>Budget</th><th>% Achieved</th></tr></thead>
+              <tbody>
+                <tr><td>Monthly Volume</td><td class="num-pos">39,443</td><td>64,559</td><td class="num-warn">61%</td></tr>
+                <tr><td>YTD Volume</td><td class="num-pos">87,929</td><td>139,864</td><td class="num-warn">63%</td></tr>
+                <tr><td>Total (FY)</td><td>46,143</td><td>64,559</td><td class="num-bad">52%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Budget Achievement
+              </span>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Period</th><th>% Monthly</th><th>% Yearly</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Current Period</td><td class="num-warn">52%</td><td class="num-bad">13%</td><td><span class="pill amber"><span class="pill-dot"></span>Monitor</span></td></tr>
+                <tr><td>MTD</td><td class="num-warn">61%</td><td>—</td><td><span class="pill amber"><span class="pill-dot"></span>Monitor</span></td></tr>
+                <tr><td>YTD</td><td>—</td><td class="num-warn">63%</td><td><span class="pill amber"><span class="pill-dot"></span>Monitor</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-header">
+          <span class="section-title">Rake Planning — 72-Hour Horizon</span>
+          <div class="section-line"></div>
+        </div>
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Forward (T+0 → T+2)</span></div>
+            <table class="data-table">
+              <thead><tr><th>Metric</th><th>T+0</th><th>T+1</th><th>T+2</th></tr></thead>
+              <tbody>
+                <tr><td>Rake Required</td><td>15</td><td>18</td><td>20</td></tr>
+                <tr><td>Rake Available</td><td class="num-pos">12</td><td class="num-warn">10</td><td class="num-warn">15</td></tr>
+                <tr><td>Rake Holding</td><td class="num-warn">-3</td><td class="num-bad">-8</td><td class="num-warn">-5</td></tr>
+              </tbody>
+            </table>
+            <div class="drill-row">
+              <span class="drill-label">Drill:</span>
+              <button class="drill-btn">Inventory Profile</button>
+              <button class="drill-btn">Rake Capacity</button>
+              <button class="drill-btn">Load Factor</button>
+              <button class="drill-btn">Rail TAT</button>
+              <button class="drill-btn">Terminal TAT</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Historical (T-2 → Today)</span></div>
+            <table class="data-table">
+              <thead><tr><th>Metric</th><th>T-2</th><th>T-1</th><th>Today</th></tr></thead>
+              <tbody>
+                <tr><td>Rake Evacuated</td><td>14</td><td>16</td><td class="num-pos">12</td></tr>
+                <tr><td>Rake Pipeline</td><td>2</td><td>3</td><td class="num-warn">5</td></tr>
+                <tr><td>Rake Holding</td><td class="num-pos">-1</td><td class="num-warn">-3</td><td class="num-bad">-3</td></tr>
+              </tbody>
+            </table>
+            <div class="drill-row">
+              <span class="drill-label">Drill:</span>
+              <button class="drill-btn">Inventory Profile</button>
+              <button class="drill-btn">Rake Capacity</button>
+              <button class="drill-btn">Rail TAT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-header">
+          <span class="section-title">Trucking / Indent — 72-Hour Horizon</span>
+          <div class="section-line"></div>
+        </div>
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Forward Indent (T+0 → T+2)</span></div>
+            <table class="data-table">
+              <thead><tr><th>Metric</th><th>T+0</th><th>T+1</th><th>T+2</th></tr></thead>
+              <tbody>
+                <tr><td>Vehicle Required</td><td>150</td><td>175</td><td>200</td></tr>
+                <tr><td>Vehicle Available</td><td class="num-pos">120</td><td class="num-warn">110</td><td class="num-warn">150</td></tr>
+                <tr><td>Vehicle Holding</td><td class="num-warn">-30</td><td class="num-bad">-65</td><td class="num-warn">-50</td></tr>
+              </tbody>
+            </table>
+            <div class="drill-row">
+              <span class="drill-label">Drill:</span>
+              <button class="drill-btn">Indent Profile</button>
+              <button class="drill-btn">Vehicle Availability</button>
+              <button class="drill-btn">Vehicle Idle</button>
+              <button class="drill-btn">Transit TAT</button>
+              <button class="drill-btn">Factory TAT</button>
+              <button class="drill-btn">Terminal TAT</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Historical Indent (T-2 → Today)</span></div>
+            <table class="data-table">
+              <thead><tr><th>Metric</th><th>T-2</th><th>T-1</th><th>Today</th></tr></thead>
+              <tbody>
+                <tr><td>Vehicle Required</td><td>140</td><td>160</td><td>150</td></tr>
+                <tr><td>Vehicle Available</td><td class="num-pos">130</td><td class="num-warn">125</td><td class="num-warn">120</td></tr>
+                <tr><td>Vehicle Holding</td><td class="num-pos">-10</td><td class="num-warn">-35</td><td class="num-bad">-30</td></tr>
+              </tbody>
+            </table>
+            <div class="drill-row">
+              <span class="drill-label">Drill:</span>
+              <button class="drill-btn">Indent Profile</button>
+              <button class="drill-btn">Vehicle Holding</button>
+              <button class="drill-btn">Transit TAT</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ INVENTORY ══════════════ -->
+    <div id="tab-inventory" class="tab-panel">
+      <div>
+        <div class="section-header">
+          <span class="section-title">EXIM Inventory — JNPT Corridor</span>
+          <div class="section-line"></div>
+        </div>
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title"><span class="tag import">Import</span>&nbsp; JNPT → Tumb / ICD</span>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Day</th><th>Terminal</th><th>From</th><th>To</th><th>20'</th><th>40'</th></tr></thead>
+              <tbody>
+                <tr><td>Day 1</td><td><span class="tag">BMCT</span></td><td>JNPT</td><td>Tumb</td><td class="num-warn">30</td><td>—</td></tr>
+                <tr><td>Day 1</td><td><span class="tag">NSIGT</span></td><td>JNPT</td><td>Tumb</td><td class="num-pos">40</td><td>—</td></tr>
+                <tr><td>Day 1</td><td><span class="tag">NSICT</span></td><td>JNPT</td><td>Tumb</td><td>0</td><td>200</td></tr>
+                <tr><td>Day 1</td><td><span class="tag">GTI</span></td><td>JNPT</td><td>Tumb</td><td>0</td><td>—</td></tr>
+                <tr><td>Day 2</td><td><span class="tag">ALL</span></td><td>JNPT</td><td>Tumb</td><td class="num-pos">400</td><td class="num-pos">600</td></tr>
+                <tr><td>Day 3</td><td><span class="tag">ALL</span></td><td>JNPT</td><td>Tumb</td><td class="num-pos">700</td><td class="num-warn">350</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title"><span class="tag export">Export</span>&nbsp; Tumb / ICD → JNPT</span>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Day</th><th>Terminal</th><th>From</th><th>To</th><th>20'</th><th>40'</th></tr></thead>
+              <tbody>
+                <tr><td>Day 1</td><td><span class="tag">BMCT</span></td><td>Tumb</td><td>JNPT</td><td class="num-warn">30</td><td>300</td></tr>
+                <tr><td>Day 1</td><td><span class="tag">NSIGT</span></td><td>Tumb</td><td>JNPT</td><td>—</td><td class="num-pos">100</td></tr>
+                <tr><td>Day 1</td><td><span class="tag">NSICT</span></td><td>Tumb</td><td>JNPT</td><td>30</td><td>400</td></tr>
+                <tr><td>Day 2</td><td><span class="tag">ALL</span></td><td>Tumb</td><td>JNPT</td><td class="num-pos">200</td><td class="num-warn">300</td></tr>
+                <tr><td>Day 3</td><td><span class="tag">ALL</span></td><td>Tumb</td><td>JNPT</td><td class="num-warn">50</td><td class="num-warn">300</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="section-header">
+          <span class="section-title">Rake Availability vs Demand</span>
+          <div class="section-line"></div>
+        </div>
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Import Rake Status</span></div>
+            <table class="data-table">
+              <thead><tr><th>Day</th><th>Available</th><th>Required</th><th>Holding</th></tr></thead>
+              <tbody>
+                <tr><td>Today</td><td class="num-pos">12</td><td>15</td><td class="num-warn">-3</td></tr>
+                <tr><td>Day 1</td><td class="num-warn">10</td><td>14</td><td class="num-bad">-4</td></tr>
+                <tr><td>Day 2</td><td class="num-pos">16</td><td>20</td><td class="num-warn">-4</td></tr>
+                <tr><td>Day 3</td><td class="num-pos">18</td><td>18</td><td class="num-pos">0</td></tr>
+              </tbody>
+            </table>
+            <div class="drill-row"><button class="drill-btn">Transit Days</button><button class="drill-btn">Dwell Days</button></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Export Rake Status</span></div>
+            <table class="data-table">
+              <thead><tr><th>Day</th><th>Available</th><th>Required</th><th>Holding</th></tr></thead>
+              <tbody>
+                <tr><td>Today</td><td class="num-pos">8</td><td>10</td><td class="num-warn">-2</td></tr>
+                <tr><td>Day 1</td><td class="num-warn">6</td><td>12</td><td class="num-bad">-6</td></tr>
+                <tr><td>Day 2</td><td class="num-pos">14</td><td>14</td><td class="num-pos">0</td></tr>
+                <tr><td>Day 3</td><td class="num-pos">16</td><td>15</td><td class="num-pos">+1</td></tr>
+              </tbody>
+            </table>
+            <div class="drill-row"><button class="drill-btn">Transit Days</button><button class="drill-btn">Dwell Days</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ CONTROL TOWER ══════════════ -->
+    <div id="tab-controltower" class="tab-panel">
+      <div>
+        <div class="section-header">
+          <span class="section-title">Live Rake Positions &amp; Exception Flags</span>
+          <div class="section-line"></div>
+        </div>
+        <div class="card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Rake ID</th><th>Location</th><th>ETA</th>
+                <th>Delay Status</th><th>TXR Due</th><th>Next Load Point</th>
+                <th>Priority Score</th><th>Risk</th><th>Flag</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-weight:700;color:var(--navy-mid)">ADANI-105</td>
+                <td>Tumb</td><td>25 May 18:00</td>
+                <td><span class="pill red"><span class="pill-dot"></span>Delayed</span></td>
+                <td style="color:var(--red);font-weight:600">26 May</td><td>JNPT</td>
+                <td>
+                  <div class="pri-wrap">
+                    <div class="pri-bg"><div class="pri-fill" style="width:88%;background:var(--red)"></div></div>
+                    <span style="font-size:10px;color:var(--red);font-family:var(--mono)">88</span>
+                  </div>
+                </td>
+                <td><span class="risk-high">HIGH</span></td>
+                <td><span class="pill red"><span class="pill-dot"></span>Action</span></td>
+              </tr>
+              <tr>
+                <td style="font-weight:700;color:var(--navy-mid)">RK-46</td>
+                <td>Tumb</td><td>25 May 08:35</td>
+                <td><span class="pill amber"><span class="pill-dot"></span>Idle 14h</span></td>
+                <td style="color:var(--text-muted)">30 May</td><td>Kila Raipur</td>
+                <td>
+                  <div class="pri-wrap">
+                    <div class="pri-bg"><div class="pri-fill" style="width:62%;background:var(--amber)"></div></div>
+                    <span style="font-size:10px;color:var(--amber);font-family:var(--mono)">62</span>
+                  </div>
+                </td>
+                <td><span class="risk-medium">MEDIUM</span></td>
+                <td><span class="pill amber"><span class="pill-dot"></span>Monitor</span></td>
+              </tr>
+              <tr>
+                <td style="font-weight:700;color:var(--navy-mid)">MND-22</td>
+                <td>Patli</td><td>26 May 06:00</td>
+                <td><span class="pill green"><span class="pill-dot"></span>On Time</span></td>
+                <td style="color:var(--text-muted)">15 Jun</td><td>Mundra</td>
+                <td>
+                  <div class="pri-wrap">
+                    <div class="pri-bg"><div class="pri-fill" style="width:45%;background:var(--accent)"></div></div>
+                    <span style="font-size:10px;color:var(--accent);font-family:var(--mono)">45</span>
+                  </div>
+                </td>
+                <td><span class="risk-low">LOW</span></td>
+                <td><span class="pill green"><span class="pill-dot"></span>Healthy</span></td>
+              </tr>
+              <tr>
+                <td style="font-weight:700;color:var(--navy-mid)">BHS-11</td>
+                <td>Bhimasar</td><td>27 May 12:00</td>
+                <td><span class="pill green"><span class="pill-dot"></span>On Time</span></td>
+                <td style="color:var(--text-muted)">10 Jun</td><td>Patli</td>
+                <td>
+                  <div class="pri-wrap">
+                    <div class="pri-bg"><div class="pri-fill" style="width:38%;background:var(--accent)"></div></div>
+                    <span style="font-size:10px;color:var(--accent);font-family:var(--mono)">38</span>
+                  </div>
+                </td>
+                <td><span class="risk-low">LOW</span></td>
+                <td><span class="pill green"><span class="pill-dot"></span>Healthy</span></td>
+              </tr>
+              <tr>
+                <td style="font-weight:700;color:var(--navy-mid)">KR-07</td>
+                <td>Kila Raipur</td><td>26 May 20:00</td>
+                <td><span class="pill red"><span class="pill-dot"></span>Congestion</span></td>
+                <td style="color:var(--amber);font-weight:600">28 May</td><td>Mundra</td>
+                <td>
+                  <div class="pri-wrap">
+                    <div class="pri-bg"><div class="pri-fill" style="width:75%;background:var(--amber)"></div></div>
+                    <span style="font-size:10px;color:var(--amber);font-family:var(--mono)">75</span>
+                  </div>
+                </td>
+                <td><span class="risk-medium">MEDIUM</span></td>
+                <td><span class="pill amber"><span class="pill-dot"></span>Monitor</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="three-col">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Priority Score Weights</span></div>
+          <table class="data-table">
+            <thead><tr><th>Factor</th><th>Weight</th></tr></thead>
+            <tbody>
+              <tr><td>Pendency Severity</td><td class="num-warn">30%</td></tr>
+              <tr><td>Customer Priority</td><td class="num-warn">25%</td></tr>
+              <tr><td>TXR Urgency</td><td>15%</td></tr>
+              <tr><td>Distance to Terminal</td><td>15%</td></tr>
+              <tr><td>Idle Time</td><td>15%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">TAT Benchmarks</span></div>
+          <table class="data-table">
+            <thead><tr><th>Route</th><th>Benchmark</th><th>Actual</th></tr></thead>
+            <tbody>
+              <tr><td>JNPT → Tumb</td><td>24h</td><td class="num-pos">22h</td></tr>
+              <tr><td>Tumb → JNPT</td><td>24h</td><td class="num-pos">23h</td></tr>
+              <tr><td>Patli → Mundra</td><td>36h</td><td class="num-bad">42h</td></tr>
+              <tr><td>Kila R → Mundra</td><td>48h</td><td class="num-warn">50h</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Exceptions Summary</span></div>
+          <table class="data-table">
+            <thead><tr><th>Type</th><th>Count</th></tr></thead>
+            <tbody>
+              <tr><td>TXR Expiry (&lt;48h)</td><td class="num-bad">2</td></tr>
+              <tr><td>Rakes Idle &gt;12h</td><td class="num-warn">1</td></tr>
+              <tr><td>TAT Breach</td><td class="num-warn">2</td></tr>
+              <tr><td>High Pendency</td><td class="num-bad">1</td></tr>
+              <tr><td>Inventory Below Min</td><td class="num-pos">0</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ PROFITABILITY ══════════════ -->
+    <div id="tab-profitability" class="tab-panel">
+      <div>
+        <div class="section-header">
+          <span class="section-title">Route Profitability</span>
+          <div class="section-line"></div>
+        </div>
+        <div class="card">
+          <table class="data-table">
+            <thead>
+              <tr><th>Route</th><th>Volume (TEU)</th><th>Revenue (₹)</th><th>Cost (₹)</th><th>CM (₹)</th><th>CM %</th><th>EBITDA (₹)</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-weight:600">Bhimasar–Patli</td>
+                <td>5,000</td><td>12,00,000</td><td>8,00,000</td>
+                <td class="num-pos">4,00,000</td>
+                <td><div class="cm-wrap"><div class="cm-bg"><div class="cm-fill" style="width:33%"></div></div><span class="num-warn">33%</span></div></td>
+                <td class="num-pos">3,00,000</td>
+                <td><span class="pill amber"><span class="pill-dot"></span>Average</span></td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">Kila Raipur–Mundra</td>
+                <td>8,000</td><td>20,00,000</td><td>12,00,000</td>
+                <td class="num-pos">8,00,000</td>
+                <td><div class="cm-wrap"><div class="cm-bg"><div class="cm-fill" style="width:40%"></div></div><span class="num-pos">40%</span></div></td>
+                <td class="num-pos">6,50,000</td>
+                <td><span class="pill green"><span class="pill-dot"></span>Strong</span></td>
+              </tr>
+              <tr>
+                <td style="font-weight:600">Patli–Mundra</td>
+                <td>6,500</td><td>15,00,000</td><td>10,00,000</td>
+                <td class="num-pos">5,00,000</td>
+                <td><div class="cm-wrap"><div class="cm-bg"><div class="cm-fill" style="width:33%"></div></div><span class="num-warn">33%</span></div></td>
+                <td class="num-pos">4,00,000</td>
+                <td><span class="pill amber"><span class="pill-dot"></span>Average</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="three-col">
+        <div class="kpi-card green">
+          <div class="kpi-label">Total Revenue</div>
+          <div class="kpi-value" style="font-size:20px">₹47L</div>
+          <div class="kpi-sub">All active routes</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill" style="width:70%"></div></div>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-label">Best CM Route</div>
+          <div class="kpi-value" style="font-size:14px;padding-top:6px">Kila R–Mundra</div>
+          <div class="kpi-sub">40% CM · ₹8L contribution</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill" style="width:40%"></div></div>
+        </div>
+        <div class="kpi-card amber">
+          <div class="kpi-label">Avg CM % (All Routes)</div>
+          <div class="kpi-value">35%</div>
+          <div class="kpi-sub">Weighted average</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill" style="width:35%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ DATA ENTRY ══════════════ -->
+    <div id="tab-dataentry" class="tab-panel">
+      <div class="de-layout">
+
+        <!-- Left menu -->
+        <div class="de-menu-card">
+          <div class="de-menu-header">Select Table</div>
+          <button class="de-menu-item active" onclick="selectTable('rake_planning')" id="menu-rake_planning">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 12 12 5 19 12"/><polyline points="5 19 12 12 19 19"/></svg>
+            Rake Planning
+          </button>
+          <button class="de-menu-item" onclick="selectTable('vehicle_planning')" id="menu-vehicle_planning">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            Vehicle / Indent
+          </button>
+          <button class="de-menu-item" onclick="selectTable('inventory')" id="menu-inventory">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            Inventory
+          </button>
+          <button class="de-menu-item" onclick="selectTable('rake_positions')" id="menu-rake_positions">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Rake Positions
+          </button>
+          <button class="de-menu-item" onclick="selectTable('volume_budget')" id="menu-volume_budget">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Volume Budget
+          </button>
+          <button class="de-menu-item" onclick="selectTable('exception_log')" id="menu-exception_log">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Exception Log
+          </button>
+          <button class="de-menu-item" onclick="selectTable('rakes')" id="menu-rakes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Rake Master
+          </button>
+        </div>
+
+        <!-- Right: form + records -->
+        <div>
+          <div class="de-form-card">
+            <div class="de-form-header">
+              <div>
+                <div class="de-form-title" id="form-title">Add / Edit — Rake Planning</div>
+                <div class="de-form-sub" id="form-sub">Fill in planning horizon data</div>
+              </div>
+              <button class="btn btn-secondary" onclick="clearForm()" style="font-size:10px;padding:5px 12px">Clear</button>
+            </div>
+            <div class="de-form-body" id="form-body">
+              <!-- Rendered by JS -->
+            </div>
+            <div class="de-actions">
+              <button class="btn btn-primary"    onclick="saveRecord()">Save Record</button>
+              <button class="btn btn-secondary"  onclick="clearForm()">Cancel</button>
+            </div>
+          </div>
+
+          <!-- Records list -->
+          <div class="de-records-card">
+            <div class="de-records-header">
+              <span class="de-records-title" id="records-title">Recent Records — Rake Planning</span>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--text-muted)" id="records-count"></span>
+            </div>
+            <div id="records-list">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <!-- END DATA ENTRY -->
+
+  </main>
+</div>
+
+<!-- MODAL (delete confirm) -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3>Delete Record</h3>
+    <p id="modal-msg">Are you sure you want to delete this record? This cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-danger"    onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CONFIG — paste your values here before deploying
+// ══════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://bbvadnonqhqfgvvionjh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJidmFkbm9ucWhxZmd2dmlvbmpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMjA1NzMsImV4cCI6MjA5NTU5NjU3M30.ojfPDpPpf8-tQlMYRbavT5iD4bbRusZQ9vGFpWytYHo'; // anon key: read-only by default
+
+// Session key used in sessionStorage (clears on tab close)
+const SESSION_KEY  = 'rct_de_session';
+// How long a login session lasts (ms). Default: 4 hours.
+const SESSION_TTL  = 4 * 60 * 60 * 1000;
+// Max wrong attempts before lockout
+const MAX_ATTEMPTS = 5;
+// Lockout duration (ms). Default: 10 minutes.
+const LOCKOUT_MS   = 10 * 60 * 1000;
+
+// ══════════════════════════════════════════════════════
+// TIMESTAMP
+// ══════════════════════════════════════════════════════
+function updateTs(){
+  const el = document.getElementById('ts');
+  const now = new Date();
+  el.textContent = 'Refreshed ' + now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+updateTs(); setInterval(updateTs, 30000);
+
+// ══════════════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════════════
+const TAB_IDX = {planning:0, inventory:1, controltower:2, profitability:3, dataentry:4};
+function switchTab(name){
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById('tab-'+name);
+  if(panel) panel.classList.add('active');
+  const idx = TAB_IDX[name];
+  const tBtns = document.querySelectorAll('.tab-btn');
+  const sBtns = document.querySelectorAll('.sidebar-btn');
+  if(tBtns[idx]) tBtns[idx].classList.add('active');
+  if(sBtns[idx]) sBtns[idx].classList.add('active');
+  if(name === 'dataentry') renderDataEntryTab();
+}
+
+// ══════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════
+function showToast(msg, type='success'){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast '+type+' show';
+  setTimeout(()=>{ el.className='toast'; }, 2800);
+}
+
+// ══════════════════════════════════════════════════════
+// DELETE MODAL
+// ══════════════════════════════════════════════════════
+let pendingDeleteId = null;
+function openModal(id){
+  pendingDeleteId = id;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); pendingDeleteId=null; }
+function confirmDelete(){
+  if(pendingDeleteId !== null){ deleteRecord(pendingDeleteId); closeModal(); }
+}
+
+// ══════════════════════════════════════════════════════
+// PASSWORD / SESSION MANAGEMENT
+// ══════════════════════════════════════════════════════
+
+function getSession(){
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if(!raw) return null;
+    const s = JSON.parse(raw);
+    if(Date.now() > s.expires){ sessionStorage.removeItem(SESSION_KEY); return null; }
+    return s;
+  } catch(e){ return null; }
+}
+
+function setSession(){
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+    expires: Date.now() + SESSION_TTL,
+    at: new Date().toISOString()
+  }));
+}
+
+function clearSession(){
+  sessionStorage.removeItem(SESSION_KEY);
+  renderDataEntryTab();   // re-render to show lock screen
+}
+
+function isLockedOut(){
+  const until = parseInt(sessionStorage.getItem('rct_lockout') || '0');
+  return Date.now() < until;
+}
+
+function getRemainingLockout(){
+  const until = parseInt(sessionStorage.getItem('rct_lockout') || '0');
+  return Math.max(0, Math.ceil((until - Date.now()) / 1000));
+}
+
+function getAttempts(){
+  return parseInt(sessionStorage.getItem('rct_attempts') || '0');
+}
+
+function bumpAttempt(){
+  const n = getAttempts() + 1;
+  sessionStorage.setItem('rct_attempts', String(n));
+  if(n >= MAX_ATTEMPTS){
+    sessionStorage.setItem('rct_lockout', String(Date.now() + LOCKOUT_MS));
+    sessionStorage.setItem('rct_attempts', '0');
+  }
+  return n;
+}
+
+function resetAttempts(){
+  sessionStorage.removeItem('rct_attempts');
+  sessionStorage.removeItem('rct_lockout');
+}
+
+// ── Verify password via Supabase RPC (postgres function) ──
+// Falls back to a local constant for demo / before Supabase is wired up.
+
+
+async function verifyPassword(pwd){
+  // If Supabase is configured, use the server-side bcrypt check
+  if(SUPABASE_URL !== 'YOUR_SUPABASE_URL'){
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/rpc/verify_data_entry_password`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY
+        },
+        body: JSON.stringify({ pwd })
+      }
+    );
+    if(!res.ok) throw new Error('Server error during verification');
+    return await res.json(); // returns true or false
+  }
+  // Demo fallback (local check only — not for production)
+  return pwd === LOCAL_DEMO_PASSWORD;
+}
+
+// ══════════════════════════════════════════════════════
+// DATA ENTRY TAB RENDERER — decides lock screen vs form
+// ══════════════════════════════════════════════════════
+function renderDataEntryTab(){
+  const root = document.getElementById('tab-dataentry');
+  if(getSession()){
+    // ── UNLOCKED: show full data entry UI ──
+    renderUnlockedUI(root);
+  } else {
+    // ── LOCKED: show password screen ──
+    renderLockScreen(root);
+  }
+}
+
+function renderLockScreen(root){
+  root.innerHTML = `
+    <div class="lock-screen">
+      <div class="lock-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="lock-title">Data Entry — Restricted Access</div>
+        <div class="lock-sub">This section allows direct database writes. Enter the operator password to continue.</div>
+      </div>
+      <form class="lock-form" onsubmit="submitPassword(event)">
+        <div class="lock-input-wrap">
+          <input class="lock-input" id="lock-pwd" type="password"
+            placeholder="Enter password" autocomplete="current-password"/>
+          <button type="button" class="lock-toggle" onclick="togglePwdVisibility()" tabindex="-1">
+            <svg id="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+        <div class="lock-error" id="lock-error"></div>
+        <button class="lock-btn" id="lock-submit" type="submit">Unlock Data Entry</button>
+        <div class="lock-attempts" id="lock-attempts"></div>
+      </form>
+    </div>`;
+
+  // Show lockout state immediately if applicable
+  if(isLockedOut()){
+    setLockoutUI();
+  } else {
+    updateAttemptsDisplay();
+  }
+
+  const input = document.getElementById('lock-pwd');
+  if(input) input.focus();
+}
+
+function togglePwdVisibility(){
+  const input = document.getElementById('lock-pwd');
+  const icon  = document.getElementById('eye-icon');
+  if(!input) return;
+  const isText = input.type === 'text';
+  input.type = isText ? 'password' : 'text';
+  icon.innerHTML = isText
+    ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+    : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+}
+
+function updateAttemptsDisplay(){
+  const el = document.getElementById('lock-attempts');
+  if(!el) return;
+  const n = getAttempts();
+  if(n > 0){
+    const left = MAX_ATTEMPTS - n;
+    el.textContent = `${left} attempt${left!==1?'s':''} remaining before lockout`;
+  } else {
+    el.textContent = '';
+  }
+}
+
+function setLockoutUI(){
+  const errEl = document.getElementById('lock-error');
+  const btn   = document.getElementById('lock-submit');
+  const input = document.getElementById('lock-pwd');
+  const attEl = document.getElementById('lock-attempts');
+  if(btn)   btn.disabled = true;
+  if(input) input.disabled = true;
+
+  const tick = () => {
+    const secs = getRemainingLockout();
+    if(secs <= 0){
+      if(btn)   btn.disabled = false;
+      if(input){ input.disabled = false; input.focus(); }
+      if(errEl) errEl.textContent = '';
+      if(attEl) attEl.textContent = '';
+      return;
+    }
+    const m = Math.floor(secs/60), s = secs % 60;
+    if(errEl) errEl.textContent = `Too many attempts. Locked for ${m}:${String(s).padStart(2,'0')}`;
+    if(attEl) attEl.textContent = '';
+    setTimeout(tick, 1000);
+  };
+  tick();
+}
+
+async function submitPassword(e){
+  e.preventDefault();
+  if(isLockedOut()){ setLockoutUI(); return; }
+
+  const input  = document.getElementById('lock-pwd');
+  const errEl  = document.getElementById('lock-error');
+  const btn    = document.getElementById('lock-submit');
+  const pwd    = input ? input.value : '';
+
+  if(!pwd){ if(errEl) errEl.textContent = 'Please enter a password.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Verifying...';
+
+  try {
+    const ok = await verifyPassword(pwd);
+    if(ok){
+      resetAttempts();
+      setSession();
+      renderDataEntryTab();
+    } else {
+      const n = bumpAttempt();
+      if(isLockedOut()){
+        setLockoutUI();
+      } else {
+        const left = MAX_ATTEMPTS - n;
+        if(errEl) errEl.textContent = `Incorrect password. ${left} attempt${left!==1?'s':''} remaining.`;
+        if(input){ input.value=''; input.classList.add('error'); setTimeout(()=>input.classList.remove('error'),600); input.focus(); }
+        btn.disabled = false;
+        btn.textContent = 'Unlock Data Entry';
+        updateAttemptsDisplay();
+      }
+    }
+  } catch(err){
+    if(errEl) errEl.textContent = 'Verification error. Check your connection.';
+    btn.disabled = false;
+    btn.textContent = 'Unlock Data Entry';
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// UNLOCKED UI
+// ══════════════════════════════════════════════════════
+function renderUnlockedUI(root){
+  const session = getSession();
+  const expiresIn = Math.round((session.expires - Date.now()) / 60000);
+
+  root.innerHTML = `
+    <div class="session-bar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      Data Entry unlocked — session expires in ${expiresIn} min
+      <button class="session-signout" onclick="clearSession()">Sign out</button>
+    </div>
+    <div class="de-layout">
+      <div class="de-menu-card">
+        <div class="de-menu-header">Select Table</div>
+        <button class="de-menu-item active" onclick="selectTable('rake_planning')"   id="menu-rake_planning">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 12 12 5 19 12"/><polyline points="5 19 12 12 19 19"/></svg>
+          Rake Planning
+        </button>
+        <button class="de-menu-item" onclick="selectTable('vehicle_planning')" id="menu-vehicle_planning">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          Vehicle / Indent
+        </button>
+        <button class="de-menu-item" onclick="selectTable('inventory')"        id="menu-inventory">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          Inventory
+        </button>
+        <button class="de-menu-item" onclick="selectTable('rake_positions')"   id="menu-rake_positions">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Rake Positions
+        </button>
+        <button class="de-menu-item" onclick="selectTable('volume_budget')"    id="menu-volume_budget">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Volume Budget
+        </button>
+        <button class="de-menu-item" onclick="selectTable('exception_log')"    id="menu-exception_log">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Exception Log
+        </button>
+        <button class="de-menu-item" onclick="selectTable('rakes')"            id="menu-rakes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          Rake Master
+        </button>
+      </div>
+      <div>
+        <div class="de-form-card">
+          <div class="de-form-header">
+            <div>
+              <div class="de-form-title" id="form-title">Add / Edit — Rake Planning</div>
+              <div class="de-form-sub"   id="form-sub">Fill in planning horizon data</div>
+            </div>
+            <button class="btn btn-secondary" onclick="clearForm()" style="font-size:10px;padding:5px 12px">Clear</button>
+          </div>
+          <div class="de-form-body" id="form-body"></div>
+          <div class="de-actions">
+            <button class="btn btn-primary"   onclick="saveRecord()">Save Record</button>
+            <button class="btn btn-secondary" onclick="clearForm()">Cancel</button>
+          </div>
+        </div>
+        <div class="de-records-card">
+          <div class="de-records-header">
+            <span class="de-records-title" id="records-title">Recent Records — Rake Planning</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--text-muted)" id="records-count"></span>
+          </div>
+          <div id="records-list"></div>
+        </div>
+      </div>
+    </div>`;
+
+  selectTable(currentTable || 'rake_planning');
+}
+
+// ══════════════════════════════════════════════════════
+// SUPABASE FETCH HELPER
+// ══════════════════════════════════════════════════════
+async function supabaseFetch(table, method='GET', body=null, id=null){
+  const url = `${SUPABASE_URL}/rest/v1/${table}${id ? '?id=eq.'+id : ''}`;
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_KEY,
+    'Prefer': method==='POST' ? 'return=representation' : ''
+  };
+  const opts = { method, headers };
+  if(body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  if(!res.ok){ const err = await res.text(); throw new Error(err); }
+  return method==='DELETE' ? null : res.json();
+}
+
+// ══════════════════════════════════════════════════════
+// TABLE SCHEMA DEFINITIONS
+// ══════════════════════════════════════════════════════
+const SCHEMAS = {
+  rake_planning: {
+    label: 'Rake Planning',
+    sub:   '72-hour forward / historical horizon data',
+    fields: [
+      { key:'plan_date',      label:'Plan Date',     type:'date',   required:true },
+      { key:'horizon_date',   label:'Horizon Date',  type:'date',   required:true },
+      { key:'segment',        label:'Segment',       type:'select', options:['IMPORT','EXPORT'], required:true },
+      { key:'rake_required',  label:'Rake Required', type:'number', required:true },
+      { key:'rake_available', label:'Rake Available',type:'number', required:true },
+      { key:'rake_evacuated', label:'Rake Evacuated',type:'number' },
+      { key:'rake_pipeline',  label:'Rake Pipeline', type:'number' },
+      { key:'created_by',     label:'Created By',    type:'text' }
+    ],
+    displayRow: r => `${r.plan_date} → ${r.horizon_date} | ${r.segment} | Req:${r.rake_required} Avail:${r.rake_available} Holding:${r.rake_holding ?? (r.rake_available - r.rake_required)}`
+  },
+  vehicle_planning: {
+    label: 'Vehicle / Indent Planning',
+    sub:   '72-hour forward / historical trucking indent',
+    fields: [
+      { key:'plan_date',         label:'Plan Date',         type:'date',   required:true },
+      { key:'horizon_date',      label:'Horizon Date',      type:'date',   required:true },
+      { key:'segment',           label:'Segment',           type:'select', options:['IMPORT','EXPORT'], required:true },
+      { key:'vehicle_required',  label:'Vehicle Required',  type:'number', required:true },
+      { key:'vehicle_available', label:'Vehicle Available', type:'number', required:true },
+      { key:'vehicle_idle',      label:'Vehicle Idle',      type:'number' },
+      { key:'created_by',        label:'Created By',        type:'text' }
+    ],
+    displayRow: r => `${r.plan_date} → ${r.horizon_date} | ${r.segment} | Req:${r.vehicle_required} Avail:${r.vehicle_available}`
+  },
+  inventory: {
+    label: 'Inventory',
+    sub:   'Container counts by terminal / day / segment',
+    fields: [
+      { key:'record_date',   label:'Record Date', type:'date',   required:true },
+      { key:'segment',       label:'Segment',     type:'select', options:['IMPORT','EXPORT'], required:true },
+      { key:'business_type', label:'Business',    type:'select', options:['EXIM','DOMESTIC'] },
+      { key:'container_20',  label:"20' Units",   type:'number' },
+      { key:'container_40',  label:"40' Units",   type:'number' }
+    ],
+    displayRow: r => `${r.record_date} | ${r.segment} | 20': ${r.container_20 ?? 0}  40': ${r.container_40 ?? 0}`
+  },
+  rake_positions: {
+    label: 'Rake Positions',
+    sub:   'Live control tower position updates',
+    fields: [
+      { key:'status',         label:'Status',         type:'select', options:['IN_TRANSIT','LOADING','UNLOADING','IDLE','MAINTENANCE','HOLDING'], required:true },
+      { key:'delay_hrs',      label:'Delay (hrs)',    type:'number' },
+      { key:'txr_due_date',   label:'TXR Due Date',  type:'date' },
+      { key:'priority_score', label:'Priority Score', type:'number' },
+      { key:'risk_level',     label:'Risk Level',     type:'select', options:['LOW','MEDIUM','HIGH'] },
+      { key:'remarks',        label:'Remarks',        type:'textarea' }
+    ],
+    displayRow: r => `${r.status} | Risk: ${r.risk_level ?? '—'} | Priority: ${r.priority_score ?? '—'} | TXR: ${r.txr_due_date ?? '—'}`
+  },
+  volume_budget: {
+    label: 'Volume Budget',
+    sub:   'Monthly / yearly budget targets',
+    fields: [
+      { key:'fy',           label:'Financial Year', type:'text',   required:true, placeholder:'2026-2027' },
+      { key:'period_type',  label:'Period Type',    type:'select', options:['MONTHLY','YEARLY'], required:true },
+      { key:'period_label', label:'Period Label',   type:'text',   required:true, placeholder:'Apr-2026' },
+      { key:'budget_teu',   label:'Budget TEU',     type:'number', required:true },
+      { key:'actual_teu',   label:'Actual TEU',     type:'number' }
+    ],
+    displayRow: r => `${r.fy} | ${r.period_label} | Budget: ${r.budget_teu} | Actual: ${r.actual_teu ?? 0}`
+  },
+  exception_log: {
+    label: 'Exception Log',
+    sub:   'Log and resolve operational exceptions',
+    fields: [
+      { key:'exception_type', label:'Exception Type', type:'select', options:['TXR_EXPIRY','IDLE_RAKE','TAT_BREACH','HIGH_PENDENCY','INVENTORY_LOW','VEHICLE_SHORTAGE','RAKE_SHORTAGE'], required:true },
+      { key:'severity',       label:'Severity',       type:'select', options:['RED','AMBER','GREEN'], required:true },
+      { key:'description',    label:'Description',    type:'textarea' },
+      { key:'is_resolved',    label:'Resolved?',      type:'select', options:['false','true'] }
+    ],
+    displayRow: r => `[${r.severity}] ${r.exception_type} | ${r.is_resolved ? '✓ Resolved' : 'Open'} | ${r.description ?? ''}`
+  },
+  rakes: {
+    label: 'Rake Master',
+    sub:   'Add or update rake records',
+    fields: [
+      { key:'rake_id',         label:'Rake ID',       type:'text',   required:true, placeholder:'e.g. ADANI-106' },
+      { key:'wagon_count',     label:'Wagon Count',   type:'number' },
+      { key:'capacity_teu_20', label:"Capacity 20'",  type:'number' },
+      { key:'capacity_teu_40', label:"Capacity 40'",  type:'number' },
+      { key:'owner',           label:'Owner',         type:'text',   placeholder:'e.g. ADANI, IR' }
+    ],
+    displayRow: r => `${r.rake_id} | Wagons: ${r.wagon_count ?? '—'} | 20': ${r.capacity_teu_20 ?? '—'} | 40': ${r.capacity_teu_40 ?? '—'}`
+  }
+};
+
+let currentTable    = 'rake_planning';
+let editingId       = null;
+let localRecords    = {};
+let recordIdCounter = 1;
+Object.keys(SCHEMAS).forEach(t => { localRecords[t] = []; });
+
+// ── SELECT TABLE ──
+function selectTable(name){
+  currentTable = name;
+  editingId    = null;
+  document.querySelectorAll('.de-menu-item').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('menu-'+name);
+  if(btn) btn.classList.add('active');
+  const schema = SCHEMAS[name];
+  const ft = document.getElementById('form-title');
+  const fs = document.getElementById('form-sub');
+  const rt = document.getElementById('records-title');
+  if(ft) ft.textContent = `Add / Edit — ${schema.label}`;
+  if(fs) fs.textContent = schema.sub;
+  if(rt) rt.textContent = `Recent Records — ${schema.label}`;
+  renderForm(name);
+  renderRecords(name);
+}
+
+// ── RENDER FORM ──
+function renderForm(table, prefill=null){
+  const schema = SCHEMAS[table];
+  const fields = schema.fields;
+  const fb = document.getElementById('form-body');
+  if(!fb) return;
+  let html = '', i = 0;
+  while(i < fields.length){
+    const f = fields[i], next = fields[i+1];
+    if(f.type === 'textarea'){
+      html += `<div class="field">${fieldLabel(f)}${fieldInput(f,prefill)}</div>`;
+      i++;
+    } else if(next && next.type !== 'textarea'){
+      html += `<div class="form-grid-2"><div class="field">${fieldLabel(f)}${fieldInput(f,prefill)}</div><div class="field">${fieldLabel(next)}${fieldInput(next,prefill)}</div></div>`;
+      i += 2;
+    } else {
+      html += `<div class="field">${fieldLabel(f)}${fieldInput(f,prefill)}</div>`;
+      i++;
+    }
+  }
+  fb.innerHTML = html;
+}
+
+function fieldLabel(f){
+  return `<label>${f.label}${f.required?' <span style="color:var(--red)">*</span>':''}</label>`;
+}
+function fieldInput(f, prefill){
+  const val = prefill ? (prefill[f.key] ?? '') : '';
+  if(f.type==='select'){
+    const opts = f.options.map(o=>`<option value="${o}" ${val==o?'selected':''}>${o}</option>`).join('');
+    return `<select id="field-${f.key}"><option value="">— select —</option>${opts}</select>`;
+  }
+  if(f.type==='textarea') return `<textarea id="field-${f.key}" rows="3">${val}</textarea>`;
+  return `<input type="${f.type==='number'?'number':'text'}" id="field-${f.key}" value="${val}" placeholder="${f.placeholder||''}"/>`;
+}
+
+// ── SAVE RECORD ──
+async function saveRecord(){
+  if(!getSession()){ clearSession(); return; }
+  const schema = SCHEMAS[currentTable];
+  const payload = {};
+  let valid = true;
+  for(const f of schema.fields){
+    const el = document.getElementById('field-'+f.key);
+    if(!el) continue;
+    let val = el.value.trim();
+    if(f.required && !val){ el.style.borderColor='var(--red)'; valid=false; }
+    else el.style.borderColor='';
+    if(val !== '') payload[f.key] = (f.type==='number') ? Number(val) : val;
+  }
+  if(!valid){ showToast('Please fill all required fields.','error'); return; }
+
+  // Local MVP store
+  if(editingId !== null){
+    const idx = localRecords[currentTable].findIndex(r => r._id===editingId);
+    if(idx !== -1) localRecords[currentTable][idx] = {...localRecords[currentTable][idx], ...payload};
+    showToast('Record updated.');
+  } else {
+    payload._id = recordIdCounter++;
+    payload.created_at = new Date().toISOString();
+    localRecords[currentTable].unshift(payload);
+    showToast('Record saved.');
+  }
+
+  /* ── Uncomment when Supabase credentials are set ──
+  try {
+    if(editingId){ await supabaseFetch(currentTable,'PATCH',payload,editingId); showToast('Record updated.'); }
+    else          { await supabaseFetch(currentTable,'POST', payload);           showToast('Record saved.');   }
+  } catch(e){ showToast('Error: '+e.message,'error'); return; }
+  */
+
+  editingId = null;
+  renderForm(currentTable);
+  renderRecords(currentTable);
+}
+
+// ── EDIT / DELETE ──
+function editRecord(id){
+  if(!getSession()){ clearSession(); return; }
+  const rec = localRecords[currentTable].find(r => r._id===id);
+  if(!rec) return;
+  editingId = id;
+  renderForm(currentTable, rec);
+  const ft = document.getElementById('form-title');
+  if(ft) ft.textContent = `Editing Record #${id} — ${SCHEMAS[currentTable].label}`;
+  document.querySelector('.de-form-card')?.scrollIntoView({behavior:'smooth'});
+}
+
+function deleteRecord(id){
+  if(!getSession()){ clearSession(); return; }
+  localRecords[currentTable] = localRecords[currentTable].filter(r => r._id!==id);
+  /* ── Supabase: await supabaseFetch(currentTable,'DELETE',null,id); ── */
+  showToast('Record deleted.','error');
+  renderRecords(currentTable);
+}
+
+// ── RENDER RECORDS ──
+function renderRecords(table){
+  const records = localRecords[table];
+  const schema  = SCHEMAS[table];
+  const el = document.getElementById('records-list');
+  const rc = document.getElementById('records-count');
+  if(!el) return;
+  if(rc) rc.textContent = `${records.length} record${records.length!==1?'s':''}`;
+  if(!records.length){
+    el.innerHTML = `<div style="padding:18px 16px;font-family:var(--mono);font-size:11px;color:var(--text-muted);text-align:center;">No records yet. Add one above.</div>`;
+    return;
+  }
+  el.innerHTML = records.map(r => `
+    <div class="de-record-row">
+      <div class="de-record-main">${schema.displayRow(r)}</div>
+      <span class="de-record-badge">#${r._id}</span>
+      <button class="btn-icon edit" title="Edit"   onclick="editRecord(${r._id})">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
+      <button class="btn-icon del"  title="Delete" onclick="openModal(${r._id})">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      </button>
+    </div>`).join('');
+}
+
+// ── CLEAR FORM ──
+function clearForm(){
+  editingId = null;
+  renderForm(currentTable);
+  const ft = document.getElementById('form-title');
+  if(ft) ft.textContent = `Add / Edit — ${SCHEMAS[currentTable].label}`;
+}
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+// Data Entry tab is rendered on-demand (switchTab calls renderDataEntryTab)
+// so nothing to init here for it.
+</script>
+</body>
+</html>
